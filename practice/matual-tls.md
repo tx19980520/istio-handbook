@@ -47,7 +47,7 @@ Istio 提供如下三种 mTLS 身份认证 模式，在不同的场景下进行�
 
 #### 使用默认 PERMISSIVE 模式
 
-默认情况下，PERMISSIVE 模式能够支持明文传输，即不管是在 Istio 管理下的 Pod 还是在 Istio 管理外的 Pod，相互之间的通信畅通无阻。PERMISSIVE 是一种过渡态，当你开始把 workload 都迁移到服务网格中时，可以使用 PERMISSIVE 过渡态，在完成迁移工作后，可以通过 Grafana Dashboard 或者在 istio-proxy 中使用 tcpdump 来检查是否仍存在明文传输的情况。最终转换为 STRICT 模式完成迁移。
+默认情况下，PERMISSIVE 模式能够支持明文传输，即不管是在 Istio 管理下的 Pod 还是在 Istio 管理外的 Pod，相互之间的通信畅通无阻。PERMISSIVE 是一种过渡态，当运维人员开始把 workload 都迁移到服务网格中时，可以使用 PERMISSIVE 过渡态，在完成迁移工作后，可以通过 Grafana Dashboard 或者在 istio-proxy 中使用 tcpdump 来检查是否仍存在明文传输的情况。最终转换为 STRICT 模式完成迁移。
 
 为简单辨识请求是否使用密文传输，命令行中会尝试用正则匹配显示返回中的 SPIFFE URL ，它来自 X.509 证书的客户端标识，表明通信是在 mTLS 中发送的。
 
@@ -108,7 +108,7 @@ response code: 200
 
 #### 启用 DISABLE 模式
 
-可能因为种种的原因，实践中不会将 `sleep.legacy` 迁移到服务网格中，但仍旧希望其可以与 `httpbin.mtls-test` 进行通信，因此针对 `httpbin.mtls-test` 启用 DISABLE 模式
+可能有种种的原因，实践中不会将 `sleep.legacy` 迁移到服务网格中，但仍旧希望其可以与 `httpbin.mtls-test` 进行通信，因此针对 `httpbin.mtls-test` 启用 DISABLE 模式
 
 ```yaml
 apiVersion: "security.istio.io/v1beta1"
@@ -143,7 +143,7 @@ sleep.full to httpbin.mtls-test
 response code: 200
 ```
 
-实验的输出能体现服务网格内外的通信是畅通的，但是没有展示 SPIFFE URI，表明所有的流量都是明文传输的。请一定注意这样的配置是非常危险的，在没有其他安全措施的情况下请避免这类模式的启用。
+实验的输出能体现服务网格内外的服务能正常通信，但是没有展示 SPIFFE URI，表明所有的流量都是明文传输的。请一定注意这样的配置是非常危险的，在没有其他安全措施的情况下请避免这类模式的启用。
 
 ### 使用 mTLS 实现服务间授权
 
@@ -153,9 +153,9 @@ response code: 200
 
 身份认证主要解决“我是谁”的问题，授权则是列举出“我能做什么”，对于 mTLS 而言，则应回答流量 ALLOW 还是 DENY，其中的主要依据是 Identity。通常，Trust Domain 指定身份所属的服务网格。
 
-`AuthorizationPolicy` 需要重点关注 。`AuthorizationPolicy` 对服务网格中的 workload 访问控制负责，在不同的条件下判定是否准入。
+`AuthorizationPolicy` 对服务网格中的 workload 访问控制负责，在不同的条件下判定是否准入，需要重点关注。
 
-Istio 在1.5版本前，会在每一个命名空间下创建一个 `istio.default` 的 secret，存储默认的 CA 文件，并会被挂载在 sidecar 中以供使用，但是在1.5版本中，不会再存储在 secret 中，只能通过 rpc 调用才能获取到证书内容并最终被分配在内存中。istio-proxy 中可以使用 `openssl s_client` 命令进行访问来获得证书。
+Istio 在1.5版本前，会在每一个命名空间下创建一个 `istio.default` 的 `Secret`，存储默认的 CA 文件，并会被挂载在 sidecar 中以供使用，但是在1.5版本中，不再使用 `Secret` 存储 中，只能通过 rpc 调用才能获取到证书内容并最终被分配在内存中。istio-proxy 中可以使用 `openssl s_client` 命令进行访问来获得证书。
 
 ```bash
 kubectl exec <pod> -c istio-proxy -- openssl s_client -alpn istio -connect <service:port> # 获取到证书
@@ -457,7 +457,7 @@ sleep-666475687f-cp252          2/2     Running            0          6h23m
 
 出现上述现象的原始是探针的最终实施者是 kubelet，kubelet 在执行探测时，并不会携带相应合法的证书，会被 sidecar 拒绝请求，返回一个非 2xx 的返回值，TCP 同理，因此需要在该方面上得到豁免。
 
-Istio 官方文档也给出了相应的方法，通过添加注解的方式达成豁免。
+Istio 官方文档也给出了相应的答案，通过添加注解的方式达成豁免。
 修改 Deployment，在 `template.metadata` 中添加了 `sidecar.istio.io/rewriteAppHTTPProbers` 通过改写的方式保证探针能够正常工作。
 
 ```yaml
